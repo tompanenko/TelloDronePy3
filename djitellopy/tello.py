@@ -12,50 +12,83 @@ class Tello:
     Tello API documentation:
     https://dl-cdn.ryzerobotics.com/downloads/tello/20180910/Tello%20SDK%20Documentation%20EN_1.3.pdf
     """
-    # Send and receive commands, client socket
-    UDP_IP = '192.168.10.1'
-    UDP_PORT = 8889
+    # Timeout for sockets
     RESPONSE_TIMEOUT = 0.5  # in seconds
+
+    # Send and receive commands, client socket
+    COMMAND_UDP_IP = '192.168.10.1'
+    COMMAND_UDP_PORT = 8889
     TIME_BTW_COMMANDS = 0.5  # in seconds
     TIME_BTW_RC_CONTROL_COMMANDS = 0.5  # in seconds
-    last_received_command = time.time()
+    time_last_command = time.time()
+
+    # Receive state, server socket
+    STATE_UDP_IP = '0.0.0.0'
+    STATE_UDP_PORT = 8890
+    last_received_state = time.time()
 
     # Video stream, server socket
-    VS_UDP_IP = '0.0.0.0'
-    VS_UDP_PORT = 11111
+    VIDEO_UDP_IP = '0.0.0.0'
+    VIDEO_UDP_PORT = 11111
 
     # VideoCapture object
     cap = None
     background_frame_read = None
 
-    stream_on = False
+    is_stream_on = False
 
     def __init__(self):
-        # To send comments
-        self.address = (self.UDP_IP, self.UDP_PORT)
-        self.clientSocket = socket.socket(socket.AF_INET,  # Internet
-                                          socket.SOCK_DGRAM)  # UDP
-        self.clientSocket.bind(('', self.UDP_PORT))  # For UDP response (receiving data)
+        self.is_stream_on = False
+
+        # To send commands
+        self.command_address = (self.COMMAND_UDP_IP, self.COMMAND_UDP_PORT)
+        self.command_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.command_socket.bind(  #self.command_address)
+            ('', self.COMMAND_UDP_PORT))  # For UDP response (receiving data)
         self.response = None
-        self.stream_on = False
 
-        # Run tello udp receiver on background
-        thread = threading.Thread(target=self.run_udp_receiver, args=())
-        thread.daemon = True
-        thread.start()
+        # To receive state
+        self.state_address = (self.STATE_UDP_IP, self.STATE_UDP_PORT)
+        self.state_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.state_socket.bind(self.state_address)
+        self.state_str = None
 
-    def run_udp_receiver(self):
-        """Setup drone UDP receiver. This method listens for responses of Tello. Must be run from a background thread
-        in order to not block the main thread."""
+        # Run udp receiver for command responses in background
+        command_thread = threading.Thread(
+            target=self.command_response_receiver, args=())
+        command_thread.daemon = True
+        command_thread.start()
+
+        # Run udp receiver for state in background
+        state_thread = threading.Thread(target=self.state_receiver, args=())
+        state_thread.daemon = True
+        state_thread.start()
+
+    def command_response_receiver(self):
+        """Listens for responses from Tello. Must be run as a background thread."""
         while True:
             try:
-                self.response, _ = self.clientSocket.recvfrom(1024)  # buffer size is 1024 bytes
+                self.response, _ = self.command_socket.recvfrom(
+                    1024)  # buffer size is 1024 bytes
+            except Exception as e:
+                print(e)
+                break
+
+    def state_receiver(self):
+        """Listens for state from Tello. Must be run as a background thread."""
+        while True:
+            try:
+                self.state_str, client_address = self.state_socket.recvfrom(
+                    200)
+                # The following command echoes back the state to the drone. Not sure it is necessary.
+                #sent = self.state_socket.sendto(self.state_str, client_address)
             except Exception as e:
                 print(e)
                 break
 
     def get_udp_video_address(self):
-        return 'udp://@' + self.VS_UDP_IP + ':' + str(self.VS_UDP_PORT)  # + '?overrun_nonfatal=1&fifo_size=5000'
+        return 'udp://@' + self.VIDEO_UDP_IP + ':' + str(
+            self.VIDEO_UDP_PORT)  # + '?overrun_nonfatal=1&fifo_size=5000'
 
     def get_video_capture(self):
         """Get the VideoCapture object from the camera drone
@@ -71,14 +104,15 @@ class Tello:
 
         return self.cap
 
-    def get_frame_read(self):
-        """Get the BackgroundFrameRead object from the camera drone. Then, you just need to call
-        backgroundFrameRead.frame to get the actual frame received by the drone.
+    def get_frame_reader(self):
+        """Get the BackgroundFrameReader object from the camera drone. Then, you just need to call
+        backgroundFrameReader.frame to get the actual frame received by the drone.
         Returns:
-            BackgroundFrameRead
+            BackgroundFrameReader
         """
         if self.background_frame_read is None:
-            self.background_frame_read = BackgroundFrameRead(self, self.get_udp_video_address()).start()
+            self.background_frame_read = BackgroundFrameReader(
+                self, self.get_udp_video_address()).start()
         return self.background_frame_read
 
     def stop_video_capture(self):
@@ -91,14 +125,15 @@ class Tello:
             bool: True for successful, False for unsuccessful
         """
         # Commands very consecutive makes the drone not respond to them. So wait at least self.TIME_BTW_COMMANDS seconds
-        diff = time.time() * 1000 - self.last_received_command
+        diff = time.time() * 1000 - self.time_last_command
         if diff < self.TIME_BTW_COMMANDS:
             time.sleep(diff)
 
         print('Send command: ' + command)
         timestamp = int(time.time() * 1000)
 
-        self.clientSocket.sendto(command.encode('utf-8'), self.address)
+        self.command_socket.sendto(
+            command.encode('utf-8'), self.command_address)
 
         while self.response is None:
             if (time.time() * 1000) - timestamp > self.RESPONSE_TIMEOUT * 1000:
@@ -111,7 +146,7 @@ class Tello:
 
         self.response = None
 
-        self.last_received_command = time.time() * 1000
+        self.time_last_command = time.time() * 1000
 
         return response
 
@@ -140,7 +175,8 @@ class Tello:
         # Commands very consecutive makes the drone not respond to them. So wait at least self.TIME_BTW_COMMANDS seconds
 
         print('Send command (no expect response): ' + command)
-        self.clientSocket.sendto(command.encode('utf-8'), self.address)
+        self.command_socket.sendto(
+            command.encode('utf-8'), self.command_address)
 
     @accepts(command=str)
     def send_control_command(self, command):
@@ -203,7 +239,8 @@ class Tello:
             print(e)
             pass
 
-        if ('error' not in response) and ('ERROR' not in response) and ('False' not in response):
+        if ('error' not in response) and ('ERROR' not in response) and (
+                'False' not in response):
             if response.isdigit():
                 return int(response)
             else:
@@ -214,7 +251,8 @@ class Tello:
     @staticmethod
     def return_error_on_send_command(command, response):
         """Returns False and print an informative result code to show unsuccessful response"""
-        print('Command ' + command + ' was unsuccessful. Message: ' + str(response))
+        print('Command ' + command + ' was unsuccessful. Message: ' +
+              str(response))
         return False
 
     def connect(self):
@@ -247,7 +285,7 @@ class Tello:
         """
         result = self.send_control_command("streamon")
         if result is True:
-            self.stream_on = True
+            self.is_stream_on = True
         return result
 
     def streamoff(self):
@@ -257,8 +295,12 @@ class Tello:
         """
         result = self.send_control_command("streamoff")
         if result is True:
-            self.stream_on = False
+            self.is_stream_on = False
         return result
+
+    def keep_alive(self):
+        """ Sends the command 'command' without waiting for a response. This is just to avoid the Tello to shut down due to inactivity """
+        return self.send_control_command('command')
 
     def emergency(self):
         """Stop all motors immediately
@@ -428,7 +470,8 @@ class Tello:
         Returns:
             bool: True for successful, False for unsuccessful
         """
-        return self.send_command_without_return('go %s %s %s %s' % (x, y, z, speed))
+        return self.send_command_without_return(
+            'go %s %s %s %s' % (x, y, z, speed))
 
     @accepts(x1=int, y1=int, z1=int, x2=int, y2=int, z2=int, speed=int)
     def go_xyz_speed(self, x1, y1, z1, x2, y2, z2, speed):
@@ -446,7 +489,8 @@ class Tello:
         Returns:
             bool: True for successful, False for unsuccessful
         """
-        return self.send_command_without_return('curve %s %s %s %s %s %s %s' % (x1, y1, z1, x2, y2, z2, speed))
+        return self.send_command_without_return(
+            'curve %s %s %s %s %s %s %s' % (x1, y1, z1, x2, y2, z2, speed))
 
     @accepts(x=int)
     def set_speed(self, x):
@@ -461,8 +505,13 @@ class Tello:
 
     last_rc_control_sent = 0
 
-    @accepts(left_right_velocity=int, forward_backward_velocity=int, up_down_velocity=int, yaw_velocity=int)
-    def send_rc_control(self, left_right_velocity, forward_backward_velocity, up_down_velocity, yaw_velocity):
+    @accepts(
+        left_right_velocity=int,
+        forward_backward_velocity=int,
+        up_down_velocity=int,
+        yaw_velocity=int)
+    def send_rc_control(self, left_right_velocity, forward_backward_velocity,
+                        up_down_velocity, yaw_velocity):
         """Send RC control via four channels. Command is sent every self.TIME_BTW_RC_CONTROL_COMMANDS seconds.
         Arguments:
             left_right_velocity: -100~100 (left/right)
@@ -472,12 +521,16 @@ class Tello:
         Returns:
             bool: True for successful, False for unsuccessful
         """
-        if int(time.time() * 1000) - self.last_rc_control_sent < self.TIME_BTW_RC_CONTROL_COMMANDS:
+        if int(
+                time.time() * 1000
+        ) - self.last_rc_control_sent < self.TIME_BTW_RC_CONTROL_COMMANDS:
             pass
         else:
             self.last_rc_control_sent = int(time.time() * 1000)
-            return self.send_command_without_return('rc %s %s %s %s' % (left_right_velocity, forward_backward_velocity,
-                                                                        up_down_velocity, yaw_velocity))
+            return self.send_command_without_return(
+                'rc %s %s %s %s' % (left_right_velocity,
+                                    forward_backward_velocity,
+                                    up_down_velocity, yaw_velocity))
 
     def set_wifi_with_ssid_password(self):
         """Set Wi-Fi with SSID password.
@@ -560,7 +613,7 @@ class Tello:
 
     def end(self):
         """Call this method when you want to end the tello object"""
-        if self.stream_on:
+        if self.is_stream_on:
             self.streamoff()
         if self.background_frame_read is not None:
             self.background_frame_read.stop()
@@ -568,9 +621,9 @@ class Tello:
             self.cap.release()
 
 
-class BackgroundFrameRead:
+class BackgroundFrameReader:
     """
-    This class read frames from a VideoCapture in background. Then, just call backgroundFrameRead.frame to get the
+    This class read frames from a VideoCapture in background. Then, just call backgroundFrameReader.frame to get the
     actual one.
     """
 

@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from djitellopy import Tello
 import cv2
 import pygame
@@ -144,8 +146,9 @@ class FrontEnd(object):
     def update(self):
         """ Update routine. Send velocities to Tello."""
         if self.send_rc_control:
-            self.tello.send_rc_control(self.left_right_velocity, self.for_back_velocity, self.up_down_velocity,
-                                       self.yaw_velocity)
+            self.tello.send_rc_control(
+                self.left_right_velocity, self.for_back_velocity,
+                self.up_down_velocity, self.yaw_velocity)
 
 
 def main():

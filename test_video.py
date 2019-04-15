@@ -7,6 +7,7 @@ tello = Tello()
 
 tello.connect()
 tello.streamon()
+tello.keep_alive(continuous=True)
 
 frame_reader = tello.get_frame_reader()
 
@@ -14,7 +15,6 @@ img = np.zeros((500, 500))
 cv2.imshow('pilot', img)
 
 while cv2.waitKey(50) == -1:
-    tello.keep_alive()
     print tello.state_str
     img = frame_reader.frame
     if img is not None:

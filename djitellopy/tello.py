@@ -35,29 +35,39 @@ class Tello:
     cap = None
     background_frame_read = None
 
+    # flags to keep track of what additional background services are running
     is_stream_on = False
+    is_keep_alive_continuous = True
 
     def __init__(self):
+        self.__init__command_socket()
+        self.__init__state_socket()
         self.is_stream_on = False
 
+    def __init__command_socket(self):
+        """ Initializes socket for giving commands and receiving responses """
         # To send commands
         self.command_address = (self.COMMAND_UDP_IP, self.COMMAND_UDP_PORT)
         self.command_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.command_socket.bind(  #self.command_address)
             ('', self.COMMAND_UDP_PORT))  # For UDP response (receiving data)
+
+        # Variable where response is received
         self.response = None
 
+        # Run udp receiver for command responses in background
+        self.command_thread = threading.Thread(
+            target=self.command_response_receiver, args=())
+        self.command_thread.daemon = True
+        self.command_thread.start()
+
+    def __init__state_socket(self):
+        """ Initializes socket for receiving state """
         # To receive state
         self.state_address = (self.STATE_UDP_IP, self.STATE_UDP_PORT)
         self.state_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.state_socket.bind(self.state_address)
         self.state_str = None
-
-        # Run udp receiver for command responses in background
-        command_thread = threading.Thread(
-            target=self.command_response_receiver, args=())
-        command_thread.daemon = True
-        command_thread.start()
 
         # Run udp receiver for state in background
         state_thread = threading.Thread(target=self.state_receiver, args=())
@@ -89,20 +99,6 @@ class Tello:
     def get_udp_video_address(self):
         return 'udp://@' + self.VIDEO_UDP_IP + ':' + str(
             self.VIDEO_UDP_PORT)  # + '?overrun_nonfatal=1&fifo_size=5000'
-
-    def get_video_capture(self):
-        """Get the VideoCapture object from the camera drone
-        Returns:
-            VideoCapture
-        """
-
-        if self.cap is None:
-            self.cap = cv2.VideoCapture(self.get_udp_video_address())
-
-        if not self.cap.isOpened():
-            self.cap.open(self.get_udp_video_address())
-
-        return self.cap
 
     def get_frame_reader(self):
         """Get the BackgroundFrameReader object from the camera drone. Then, you just need to call
@@ -298,9 +294,28 @@ class Tello:
             self.is_stream_on = False
         return result
 
-    def keep_alive(self):
-        """ Sends the command 'command' without waiting for a response. This is just to avoid the Tello to shut down due to inactivity """
-        return self.send_control_command('command')
+    def keep_alive(self, continuous=True):
+        """ Sends the command 'command' without waiting for a response. This is just to avoid the Tello to shut down due to inactivity
+        Optional arguments:
+        - continous If True (default), run a separate thread that sends this command regularly.
+        """
+        if continuous and not self.is_keep_alive_contiuous:
+            self.keep_alive_thread = threading.Thread(
+                target=self.keep_alive_background, args=())
+            self.keep_alive_thread.daemon = True
+            self.keep_alive_thread.start()
+            self.is_keep_alive_continuous = True
+        else:
+            return self.send_control_command('command')
+
+    def keep_alive_background(self):
+        while True:
+            try:
+                self.keep_alive(continuous=False)
+                time.sleep(10)
+            except Exception as e:
+                print(e)
+                break
 
     def emergency(self):
         """Stop all motors immediately

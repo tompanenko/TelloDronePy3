@@ -7,20 +7,50 @@ from threading import Thread
 from djitellopy.decorators import accepts
 
 
+def float_maybe_list(str_float, sep=','):
+    """ Convert a string to float. If the string contains commas, return a list of floats."""
+    str_float_split = str_float.split(sep)
+    if len(str_float_split) == 1:
+        ret = float(str_float_split[0])
+    else:
+        ret = [float(x) for x in str_float_split]
+    return ret
+
+
+def state_str_to_dict(state_str):
+    """ Decodes state string into a dictionary. """
+
+    def item_str_to_pair(s):
+        s_split = s.split(':')
+        if len(s_split) > 1:
+            return (s_split[0], float_maybe_list(s_split[1]))
+        else:
+            return (None, None)
+
+    if len(state_str) > 0:
+        return dict(item_str_to_pair(x) for x in state_str.split(';'))
+    else:
+        return None
+
+
+def state_format(state, pairs):
+    return '; '.join([':'.join([fmt, str(state[key])]) for fmt, key in pairs])
+
+
 class Tello:
     """Python wrapper to interact with the Ryze Tello drone using the official Tello api.
     Tello API documentation:
     https://dl-cdn.ryzerobotics.com/downloads/tello/20180910/Tello%20SDK%20Documentation%20EN_1.3.pdf
     """
     # Timeout for sockets
-    RESPONSE_TIMEOUT = 0.5  # in seconds
+    RESPONSE_TIMEOUT = 7  # in seconds
 
     # Send and receive commands, client socket
     COMMAND_UDP_IP = '192.168.10.1'
     COMMAND_UDP_PORT = 8889
     TIME_BTW_COMMANDS = 0.5  # in seconds
     TIME_BTW_RC_CONTROL_COMMANDS = 0.5  # in seconds
-    time_last_command = time.time()
+    time_last_command = time.clock()
 
     # Receive state, server socket
     STATE_UDP_IP = '0.0.0.0'
@@ -32,14 +62,19 @@ class Tello:
     VIDEO_UDP_PORT = 11111
 
     # VideoCapture object
-    cap = None
-    background_frame_read = None
+    background_frame_reader = None
 
     # flags to keep track of what additional background services are running
     is_stream_on = False
-    is_keep_alive_continuous = True
+    is_keep_alive_continuous = False
+
+    command_socket = None
+    state_socket = None
+    state_str = None
+    state = None
 
     def __init__(self):
+        self.is_running = True
         self.__init__command_socket()
         self.__init__state_socket()
         self.is_stream_on = False
@@ -49,6 +84,7 @@ class Tello:
         # To send commands
         self.command_address = (self.COMMAND_UDP_IP, self.COMMAND_UDP_PORT)
         self.command_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.command_socket.settimeout(self.RESPONSE_TIMEOUT)
         self.command_socket.bind(  #self.command_address)
             ('', self.COMMAND_UDP_PORT))  # For UDP response (receiving data)
 
@@ -58,7 +94,7 @@ class Tello:
         # Run udp receiver for command responses in background
         self.command_thread = threading.Thread(
             target=self.command_response_receiver, args=())
-        self.command_thread.daemon = True
+        #self.command_thread.daemon = True
         self.command_thread.start()
 
     def __init__state_socket(self):
@@ -66,53 +102,82 @@ class Tello:
         # To receive state
         self.state_address = (self.STATE_UDP_IP, self.STATE_UDP_PORT)
         self.state_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.state_socket.settimeout(self.RESPONSE_TIMEOUT)
+        self.state_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.state_socket.bind(self.state_address)
-        self.state_str = None
 
         # Run udp receiver for state in background
         state_thread = threading.Thread(target=self.state_receiver, args=())
-        state_thread.daemon = True
+        #state_thread.daemon = True
         state_thread.start()
 
     def command_response_receiver(self):
         """Listens for responses from Tello. Must be run as a background thread."""
-        while True:
+        print "command_response_receiver: starting"
+        timeout_count = 0
+        while self.is_running:
             try:
                 self.response, _ = self.command_socket.recvfrom(
                     1024)  # buffer size is 1024 bytes
-            except Exception as e:
-                print(e)
-                break
+                timeout_count = 0
+            except socket.timeout:
+                timeout_count += 1
+                #print "command_response_receiver: timeout count: ", timeout_count
+                if timeout_count > 60:
+                    print "command_response_receiver: too many timeouts"
+                    self.is_running = False
+
+        self.command_socket.close()
+        print "command_response_receiver: terminating"
 
     def state_receiver(self):
         """Listens for state from Tello. Must be run as a background thread."""
-        while True:
+        timeout_count = 0
+        print "state_receiver: starting"
+        while self.is_running:
             try:
                 self.state_str, client_address = self.state_socket.recvfrom(
                     200)
                 # The following command echoes back the state to the drone. Not sure it is necessary.
                 #sent = self.state_socket.sendto(self.state_str, client_address)
-            except Exception as e:
-                print(e)
-                break
+                self.state = state_str_to_dict(self.state_str)
+                timeout_count = 0
+            except socket.timeout:
+                timeout_count += 1
+                #print "state_receiver: timeout count: ", timeout_count
+                if timeout_count > 60:
+                    print "command_response_receiver: too many timeouts"
+                    self.is_running = False
 
-    def get_udp_video_address(self):
-        return 'udp://@' + self.VIDEO_UDP_IP + ':' + str(
-            self.VIDEO_UDP_PORT)  # + '?overrun_nonfatal=1&fifo_size=5000'
+        #except Exception as e:
+        #print(e)
+        self.state_socket.close()
+        print "state_receiver: terminating"
 
-    def get_frame_reader(self):
-        """Get the BackgroundFrameReader object from the camera drone. Then, you just need to call
-        backgroundFrameReader.frame to get the actual frame received by the drone.
-        Returns:
-            BackgroundFrameReader
-        """
-        if self.background_frame_read is None:
-            self.background_frame_read = BackgroundFrameReader(
-                self, self.get_udp_video_address()).start()
-        return self.background_frame_read
-
-    def stop_video_capture(self):
-        return self.streamoff()
+    def print_state(self, raw=False):
+        if not self.state:
+            print "No state received"
+        else:
+            if raw:
+                print self.state_str
+            else:
+                print state_format(self.state, [('Battery', 'bat')])
+                print 'Attitude:'
+                print '\t', state_format(self.state, [('Roll', 'roll'),
+                                                      ('Pitch', 'pitch'),
+                                                      ('Yaw', 'yaw')])
+                print 'Height:', self.state['h']
+                print 'Acceleration: '
+                print '\t', state_format(self.state,
+                                         [('X', 'agx'), ('Z', 'agy'),
+                                          ('Z', 'agz')])
+                if self.state['mid'] < 0:
+                    print 'No mission pad detected'
+                else:
+                    print state_format(self.state, [('Mission pad', 'mid')])
+                    print '\t', state_format(
+                        self.state, [('X', 'x'), ('Y', 'y'), ('Z', 'z')])
+                    print '\t', 'Yaw:', self.state['mpry'][2]
 
     @accepts(command=str)
     def send_command_with_return(self, command):
@@ -121,28 +186,42 @@ class Tello:
             bool: True for successful, False for unsuccessful
         """
         # Commands very consecutive makes the drone not respond to them. So wait at least self.TIME_BTW_COMMANDS seconds
-        diff = time.time() * 1000 - self.time_last_command
+        diff = time.clock() - self.time_last_command
         if diff < self.TIME_BTW_COMMANDS:
-            time.sleep(diff)
+            time.sleep(self.TIME_BTW_COMMANDS - diff)
 
         print('Send command: ' + command)
-        timestamp = int(time.time() * 1000)
+        timestamp = time.clock()
 
-        self.command_socket.sendto(
-            command.encode('utf-8'), self.command_address)
+        #give error if socket is not setup yet
+        if self.command_socket:
+            try:
+                self.command_socket.sendto(
+                    command.encode('utf-8'), self.command_address)
+            except socket.error as e:
+                print(e)
+                self.is_running = False
 
-        while self.response is None:
-            if (time.time() * 1000) - timestamp > self.RESPONSE_TIMEOUT * 1000:
-                print('Timeout exceed on command ' + command)
-                return False
+            while self.response is None:
+                lag_time = time.clock() - timestamp
+                if lag_time > self.RESPONSE_TIMEOUT:
+                    print 'Timeout ', lag_time, ' exceed on command ', command
+                    return False
 
-        print('Response: ' + str(self.response))
+            print 'Response: ', str(
+                self.response), '(delay: ', time.clock() - timestamp, ')'
 
-        response = self.response.decode('utf-8')
+            try:
+                response = self.response.decode('utf-8')
+            except Exception as e:
+                print(e)
 
-        self.response = None
+            self.response = None
 
-        self.time_last_command = time.time() * 1000
+            self.time_last_command = time.clock()
+        else:
+            print('Command socket not setup')
+            return False
 
         return response
 
@@ -273,7 +352,42 @@ class Tello:
         """
         return self.send_control_command("land")
 
-    def streamon(self):
+    def mission_pads_on(self):
+        """Turn on mission pad detection
+        Returns:
+            bool: True for successful, False for unsuccessful
+        """
+        return self.send_control_command("mon")
+
+    def mission_pads_off(self):
+        """Turn off mission pad detection
+        Returns:
+            bool: True for successful, False for unsuccessful
+        """
+        return self.send_control_command("moff")
+
+    def get_udp_video_address(self):
+        return 'udp://@' + self.VIDEO_UDP_IP + ':' + str(
+            self.VIDEO_UDP_PORT)  # + '?overrun_nonfatal=1&fifo_size=5000'
+
+    def get_frame_reader(self):
+        """Get the BackgroundFrameReader object from the camera drone. Then, you just need to call
+        backgroundFrameReader.frame to get the actual frame received by the drone.
+        Returns:
+            BackgroundFrameReader
+        """
+        if self.background_frame_reader is None:
+            self.background_frame_reader = BackgroundFrameReader(
+                self, self.get_udp_video_address()).start()
+        return self.background_frame_reader
+
+    def get_frame(self):
+        if self.is_stream_on:
+            return self.background_frame_reader.frame
+        else:
+            return None
+
+    def stream_on(self):
         """Set video stream on. If the response is 'Unknown command' means you have to update the Tello firmware. That
         can be done through the Tello app.
         Returns:
@@ -282,15 +396,19 @@ class Tello:
         result = self.send_control_command("streamon")
         if result is True:
             self.is_stream_on = True
+            self.get_frame_reader()
         return result
 
-    def streamoff(self):
+    def stream_off(self):
         """Set video stream off
         Returns:
             bool: True for successful, False for unsuccessful
         """
         result = self.send_control_command("streamoff")
         if result is True:
+            if self.is_stream_on:
+                print 'Stopping streaming'
+                self.background_frame_reader.stop()
             self.is_stream_on = False
         return result
 
@@ -299,23 +417,24 @@ class Tello:
         Optional arguments:
         - continous If True (default), run a separate thread that sends this command regularly.
         """
-        if continuous and not self.is_keep_alive_contiuous:
+        if continuous and not self.is_keep_alive_continuous:
             self.keep_alive_thread = threading.Thread(
                 target=self.keep_alive_background, args=())
-            self.keep_alive_thread.daemon = True
             self.keep_alive_thread.start()
             self.is_keep_alive_continuous = True
         else:
             return self.send_control_command('command')
 
     def keep_alive_background(self):
-        while True:
-            try:
+        print "keep_alive_background: starting"
+        count = -1
+        while self.is_running:
+            time.sleep(1)
+            count = count + 1
+            if count == 10:
                 self.keep_alive(continuous=False)
-                time.sleep(10)
-            except Exception as e:
-                print(e)
-                break
+                count = 0
+        print "keep_alive_background: terminating"
 
     def emergency(self):
         """Stop all motors immediately
@@ -428,7 +547,7 @@ class Tello:
     def rotate_counter_clockwise(self, x):
         """Tello rotate x degree counter-clockwise.
         Arguments:
-            x: 1-3600
+            x: 1-360
 
         Returns:
             bool: True for successful, False for unsuccessful
@@ -568,7 +687,10 @@ class Tello:
             False: Unsuccessful
             int: -100
         """
-        return self.send_read_command('battery?')
+        if self.state:
+            return self.state['bat']
+        else:
+            return self.send_read_command('battery?')
 
     def get_flight_time(self):
         """Get current fly time (s)
@@ -584,7 +706,10 @@ class Tello:
             False: Unsuccessful
             int: 0-3000
         """
-        return self.send_read_command('height?')
+        if self.state:
+            return self.state['h']
+        else:
+            return self.send_read_command('height?')
 
     def get_temperature(self):
         """Get temperature (°C)
@@ -608,7 +733,10 @@ class Tello:
             False: Unsuccessful
             int: 0-100
         """
-        return self.send_read_command('baro?')
+        if self.state:
+            return self.state['baro']
+        else:
+            return self.send_read_command('baro?')
 
     def get_distance_tof(self):
         """Get distance value from TOF (cm)
@@ -616,7 +744,10 @@ class Tello:
             False: Unsuccessful
             int: 30-1000
         """
-        return self.send_read_command('tof?')
+        if self.state:
+            return self.state['tof']
+        else:
+            return self.send_read_command('tof?')
 
     def get_wifi(self):
         """Get Wi-Fi SNR
@@ -628,12 +759,14 @@ class Tello:
 
     def end(self):
         """Call this method when you want to end the tello object"""
+        time.sleep(3)
+        self.print_state()
+        if self.get_height() > 1:
+            self.land()
+        time.sleep(1)
+        self.is_running = False
         if self.is_stream_on:
-            self.streamoff()
-        if self.background_frame_read is not None:
-            self.background_frame_read.stop()
-        if self.cap is not None:
-            self.cap.release()
+            self.stream_off()
 
 
 class BackgroundFrameReader:
@@ -643,25 +776,29 @@ class BackgroundFrameReader:
     """
 
     def __init__(self, tello, address):
-        tello.cap = cv2.VideoCapture(address)
-        self.cap = tello.cap
+        self.cap = cv2.VideoCapture(address)
 
         if not self.cap.isOpened():
             self.cap.open(address)
 
         self.grabbed, self.frame = self.cap.read()
-        self.stopped = False
+        self.is_running = True
 
     def start(self):
-        Thread(target=self.update_frame, args=()).start()
+        self.frame_thread = Thread(target=self.update_frame, args=()).start()
         return self
 
     def update_frame(self):
-        while not self.stopped:
-            if not self.grabbed or not self.cap.isOpened():
-                self.stop()
-            else:
-                (self.grabbed, self.frame) = self.cap.read()
+        print "update_frame: starting"
+        while self.is_running:
+            #    if not self.grabbed or not self.cap.isOpened():
+            #        self.stop()
+            #    else:
+            #print "Frame grab"
+            (self.grabbed, self.frame) = self.cap.read()
+        print "update_frame: terminating"
 
     def stop(self):
-        self.stopped = True
+        #if self.cap.isOpened():
+        #    self.cap.release()
+        self.is_running = False

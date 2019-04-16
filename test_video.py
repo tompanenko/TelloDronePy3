@@ -23,3 +23,4 @@ try:
             cv2.imshow('pilot', img)
 finally:
     tello.end()
+    cv2.destroyAllWindows()

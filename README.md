@@ -58,10 +58,22 @@ The controls are:
 ### Note
 If you are using the ```streamon``` command and the response is ```Unknown command``` means you have to update the Tello firmware. That can be done through the Tello app.
 
+### Installing OpenCV on Windows
+1. Remove opencv from the anaconda install, if installed. "conda remove opencv" from Anaconda Prompt.
+2. Download opencv 3.4.6 for windows from https://sourceforge.net/projects/opencvlibrary/files/3.4.6/opencv-3.4.6-vc14_vc15.exe/download
+3. Run the opencv exe and unzipped the content to "<path to Tello>\Tello"
+4. Then copy the file "<path to Tello>\Tello\opencv\build\python\cv2\python-2.7\cv2.pyd" to "<miniconda install path>\Miniconda2\Lib\site-packages"
+5. Set a window Environment Variables as follows:
+    1. OPENCV_DIR=<path to Tello>\opencv\build\x64\vc14
+    2. Path=<previous stuff>;%OPENCV_DIR%\bin
+
+Instructions adapted from: https://mathalope.co.uk/2015/05/07/opencv-python-how-to-install-opencv-python-package-to-anaconda-windows/
+
 ## Author
 
 * **Damià Fuentes Escoté** 
-
+* **Roberto Tron**
+* **Bee Vang**
 
 ## License
 

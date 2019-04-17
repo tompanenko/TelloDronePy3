@@ -776,6 +776,8 @@ class BackgroundFrameReader:
     actual one.
     """
 
+    RESPONSE_TIMEOUT=10
+    
     def __init__(self, tello, address):
         self.cap = cv2.VideoCapture(address)
 
@@ -784,19 +786,30 @@ class BackgroundFrameReader:
 
         self.grabbed, self.frame = self.cap.read()
         self.is_running = True
+        self.is_running_update_frame = False
 
     def start(self):
         self.frame_thread = Thread(target=self.update_frame, args=()).start()
+        print 'update_frame: waiting to start'
+        starttime=time.clock()
+        while not self.is_running_update_frame:
+            lag_time = time.clock() - starttime
+            if lag_time > self.RESPONSE_TIMEOUT:
+                print 'Timeout ', lag_time, ' waiting for update_frame to start. Not starting'
+                self.is_running = False
+                return self
         return self
 
     def update_frame(self):
         print "update_frame: starting"
+        self.is_running_update_frame = True
         while self.is_running:
             #    if not self.grabbed or not self.cap.isOpened():
             #        self.stop()
             #    else:
             #print "Frame grab"
             (self.grabbed, self.frame) = self.cap.read()
+        self.is_running_update_frame = False
         print "update_frame: terminating"
 
     def stop(self):

@@ -15,3 +15,4 @@ try:
         tello.print_state()
 finally:
     tello.end()
+    cv2.destroyAllWindows()

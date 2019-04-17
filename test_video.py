@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import image_face_processing as ifp
 
-is_face_detection = True
+is_face_detection = False
 
 img = np.zeros((500, 500))
 cv2.imshow('pilot', img)
@@ -18,6 +18,7 @@ try:
         img = tello.get_frame()
         if img is not None:
             if is_face_detection:
+                print img.shape
                 faces = ifp.image_faces(img)
                 ifp.image_faces_rectangle(img, faces)
             cv2.imshow('pilot', img)

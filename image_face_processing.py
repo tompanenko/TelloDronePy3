@@ -22,8 +22,7 @@ FACE_CASCADE = cv2.CascadeClassifier(PATH_CASCADE_XML)
 
 def image_faces(img):
     """ Runs face detection on the image, and returns list of bounding boxes """
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    faces = FACE_CASCADE.detectMultiScale(gray, 1.3, 5)
+    faces = FACE_CASCADE.detectMultiScale(img, 1.3, 5)
     return faces
 
 

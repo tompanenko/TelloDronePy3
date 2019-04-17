@@ -21,6 +21,8 @@ try:
                 faces = ifp.image_faces(img)
                 ifp.image_faces_rectangle(img, faces)
             cv2.imshow('pilot', img)
+        else:
+            print 'No frame'
 finally:
     tello.end()
     cv2.destroyAllWindows()

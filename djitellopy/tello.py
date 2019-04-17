@@ -85,6 +85,7 @@ class Tello:
         self.command_address = (self.COMMAND_UDP_IP, self.COMMAND_UDP_PORT)
         self.command_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.command_socket.settimeout(self.RESPONSE_TIMEOUT)
+        self.command_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.command_socket.bind(  #self.command_address)
             ('', self.COMMAND_UDP_PORT))  # For UDP response (receiving data)
 

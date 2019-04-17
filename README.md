@@ -1,4 +1,4 @@
-# TelloSDKPy
+﻿# TelloSDKPy
 DJI Tello drone python interface using the official [Tello SDK](https://dl-cdn.ryzerobotics.com/downloads/tello/20180910/Tello%20SDK%20Documentation%20EN_1.3.pdf). 
 Yes, this library has been tested with the drone. 
 Please see [example.py](https://github.com/damiafuentes/TelloSDKPy/blob/master/example.py) for a working example controlling the drone as a remote controller with the keyboard and the video stream in a window.  
@@ -62,7 +62,7 @@ If you are using the ```streamon``` command and the response is ```Unknown comma
 1. Remove opencv from the anaconda install, if installed. "conda remove opencv" from Anaconda Prompt.
 2. Download opencv 3.4.6 for windows from https://sourceforge.net/projects/opencvlibrary/files/3.4.6/opencv-3.4.6-vc14_vc15.exe/download
 3. Run the opencv exe and unzipped the content to "<path to Tello>\Tello"
-4. Then copy the file "<path to Tello>\Tello\opencv\build\python\cv2\python-2.7\cv2.pyd" to "<miniconda install path>\Miniconda2\Lib\site-packages"
+4. Then copy the file "<path to Tello>\Tello\opencv\build\python\cv2\python-2.7\cv2.pyd" to "<miniconda install path>\Miniconda2\Lib\site-packages" (note: on UBMS laptop, this path is C:\Users\ubound\AppData\Local\Continuum\miniconda2\Lib\site-packages)
 5. Set a window Environment Variables as follows:
     1. OPENCV_DIR=<path to Tello>\opencv\build\x64\vc14
     2. Path=<previous stuff>;%OPENCV_DIR%\bin

@@ -1,0 +1,275 @@
+\documentclass[12pt]{article}
+\input{preamble/common}
+\input{preamble/courseProblemSet}
+\usepackage{listings}
+
+\title{Tello Drones Workshop}
+\author{Roberto Tron}
+\date{\today}
+
+\newcommand{\textsfbf}[1]{\textsf{\textbf{#1}}}
+\newcommand{\info}[1]{\par\textcolor{gray}{\textsfbf{Info:} \emph{#1}}}
+\newcommand{\trythis}[1]{\par\textcolor{DodgerBlue4}{\textsfbf{Try this:} \emph{#1}}}
+\newcommand{\warning}[1]{\par\textcolor{red}{\textsfbf{Note:} \emph{#1}}}
+
+\begin{document}
+\maketitle
+
+\section{First programming steps}
+
+\subsection{Opening the editor}
+Open the IDLE editor by double-clicking on the icon on the desktop. We will use this simple program to write and execute our code.
+\info{Programs that allow you to write, organize, and run code, all without leaving that program, are called Integrated Development Environments (IDE).}
+
+\subsection{Python}
+Pythons are serpents, but Python (with the capital and no ``s'') is a programming language. Nowadays, Python is among the most popular programming languages; this is probably due to the low difficulty in getting started, and the fact that its functionality can be extended with a large number of \emph{modules}.
+
+Python is an \emph{intepreted language}. In practice, this means that you can program in one of two ways:
+\begin{enumerate}
+\item Write commands at a \emph{prompt}. This is what you see after opening IDLE. After typing a command, it gets immediately executed (giving an error if it is not correct). Afterward, it the prompt waits for another command, and the cycle repeats until you exit.
+\item Write commands in a file, which is called a \emph{script}. You can then execute all the commands one after the other by \emph{running} the script. This is equivalent to typing each command at the prompt, although the execution of the script stops if it encounters an error.
+\end{enumerate}
+
+\subsection{Hello world}
+At the IDLE prompt, type
+\begin{lstlisting}
+print('Hello world!')
+\end{lstlisting}
+
+The \var{''} characters delimit a \emph{string}, which is simply a collection of characters. \var{print} is a \emph{function}; functions take in \emph{arguments} (in this case, a string) to perform some action (in this case, showing it on the screen). Sometimes, it also \emph{returns} a result (more on this later).
+
+\trythis{Select the menu \emph{File}, \emph{New} to open a new file. Write a sequence of print statements. Save and run the script.}
+
+\subsection{Variables}
+\emph{Variables} are like named labels that you put on specific \emph{objects} (items) in memory. For instance, the code
+\begin{lstlisting}
+  a='Hello world!'
+\end{lstlisting}
+gives the label \var{a} to the string \var{'Hello world'} in memory. \info{Sometimes, you might also hear that the variable \var{a} \emph{contains} the string.}
+
+You can then use \var{a} instead of using the object directly. For instance,
+\begin{lstlisting}
+  print(a)
+\end{lstlisting}
+produces the same result as in the previous section.
+
+\subsection{Modules and extending functionality with imports}
+You can extend functionality by \emph{importing modules}. For instance, the Python language by itself cannot make the drone fly. However, you can import functionality as in this example:
+\begin{lstlisting}
+  from djitellopy import Tello
+\end{lstlisting}
+In this case, we import \var{Tello} (which is a \emph{class}, more on this later) from the module \var{djitellopy}.
+
+You can then used the functions or classes that you imported:
+\begin{lstlisting}
+  tello_object=Tello()
+\end{lstlisting}
+
+\info{Names in Python are case-sensitive, so \var{tello} and \var{Tello} are recognized as different things.}
+
+\subsection{Objects}
+Objects are essentially pieces of memory with a prescribed organization. Objects can contain variables (which are labels for other objects) or functions; \emph{classes} define what variables and functions go inside an object. For instance, in the previous example
+\begin{lstlisting}
+  tello_object=Tello()
+\end{lstlisting}
+you created an object \var{tello_object} of class \var{Tello}.
+
+You can access variables or functions inside an object as in the example below.
+
+\trythis{Before running the example, you will need to turn on the drone and connect to its WiFi network. It is best to use run the example as a script.}
+
+\begin{lstlisting}
+  from djitellopy import Tello
+  tello_object=Tello()
+  
+  tello_object.connect()
+  tello_object.end()
+\end{lstlisting}
+
+As shown in the example, you need to use the name of the object \var{tello_object} followed by dot \var{.}, followed by the function or variable name (in this case, \var{connect()} first, and then \var{end()}).
+
+\info{To be precise, \var{tello_object} is a variable pointing to the object, but in general this subtle distinction is omitted.}
+
+\info{When using the drone, you need to always call the \var{end()} function, otherwise you might have trouble to connect to the drone again (this can be fixed, but it requires a little bit of time).}
+
+
+\section{The state of the drone}
+
+You can see the state of the drone (roll/pitch/yaw, accelerometer readings, and other information) by using the function \var{print_state()} in the drone.
+
+\begin{lstlisting}
+  from djitellopy import Tello
+  tello=Tello()
+  
+  tello.connect()
+  tello.print_state()
+  tello.end()
+\end{lstlisting}
+
+\subsection{More programming: repeating things (loops)}
+Sometimes, you would like to repeat a command more than once. For instance, you would like to show the state multiple times for each execution. This can be done with a \emph{for loop}. The easiest way to write for loops in Python is as in this example:
+\begin{lstlisting}
+  for count in range(0,4):
+      #commands in the loop to be repeated
+      #all commands to be repeated should be indented with spaces in front
+      #the number of spaces in front is usually 4
+\end{lstlisting}
+
+\info{Do not forget the semicolon in the first line, otherwise you will get an error.}
+
+In this case, the commands inside the loop are repeated four times; each time, the variable \var{count} will have one of the values \var{0}, \var{1}, \var{2}, \var{3}. How many times the loop gets repeated and what values the variable will cycle through depend on the arguments to the function \var{range} (which are \var{0} and \var{4})
+
+\trythis{What do you think the following commands will do?}
+\begin{lstlisting}
+  for count in range(0,5):
+      print(count)
+\end{lstlisting}
+
+\subsection{Waiting a given amount of time}
+By default, for loops get executed as fast as Python can run the commands. However, you can insert pauses by using the function \var{sleep(sec)} from the \var{time} module; \var{sec} specifies for how many seconds the execution should wait.
+
+\trythis{This example is similar to the previous, but with two-seconds pauses after each repetition of the loop.}
+\begin{lstlisting}
+  from time import sleep
+  for count in range(0,5):
+      print(count)
+      sleep(2)
+\end{lstlisting}
+
+\subsection{Reading the state of the drone multiple times}
+\trythis{We can put together all the material in this subsection}
+\begin{lstlisting}
+  from djitellopy import Tello
+  from time import sleep
+  
+  tello=Tello()
+  
+  tello.connect()
+  for count in range(0,5):
+      tello.print_state()
+      sleep(1.5)
+  tello.end()
+\end{lstlisting}
+
+\section{Flying the drone}
+
+\subsection{Takeoff and landing}
+You can have the drone takeoff and land by calling the functions \var{takeoff()} and \var{land()} in the \var{tello} object.
+\begin{lstlisting}
+  from djitellopy import Tello
+  from time import sleep
+  
+  tello=Tello()
+  
+  tello.connect()
+  tello.takeoff()
+  sleep(1.5)
+  tello.land()
+  tello.end()
+\end{lstlisting}
+
+\subsection{Moving (translation)}
+You can move in any direction (up,down,left,right,forward,back) by using the corresponding functions in the \var{tello} object.
+\info{The argument to the function must be a distance in \unit{cm} higher than 20 and no lower than 100}
+\begin{lstlisting}
+  from djitellopy import Tello
+
+  tello = Tello()
+
+  tello.connect()
+  tello.takeoff()
+  tello.move_up(30)
+  tello.move_down(30)
+  tello.move_forward(30)
+  tello.move_back(30)
+  tello.move_left(30)
+  tello.move_right(30)
+  tello.land()
+\end{lstlisting}
+
+\subsection{Rotating}
+You can change the yaw of the drone with the functions \var{rotate_clockwise(deg)} and \var{rotate_counter_clockwise(deg)}; the argument \var{deg} must be a number of degrees between 1 and 360.
+
+\begin{lstlisting}
+  from djitellopy import Tello
+
+  tello = Tello()
+
+  tello.connect()
+  tello.takeoff()
+  tello.rotate_clockwise(180)
+  tello.rotate_counter_clockwise(180)
+  tello.land()
+\end{lstlisting}
+
+\subsection{Putting things together}
+\info{For the questions below, it is easier to first write the scripts by using \var{print} to show the commands on screen instead actually executing them (e.g., \var{print('tello.move_up(50)')}). After you are satisfied with the sequencing, and when there are no errors, then you can substitute the \var{print}}.
+
+\trythis{Can you write a script such that the drone traces an imaginary square?}
+\trythis{Can you write a script such that the drone traces an imaginary square four times, with pauses of 2 seconds in between?}
+\trythis{Can you write a script that traces the edges of the side faces of an imaginary cube?}
+
+
+\section{Working with images}
+
+\subsection{More on importing modules}
+You can also import entire modules, and then decide what functions or classes to use from them later. For instance, the module \var{cv2} contains many functions to handle images. 
+For instance:
+\begin{lstlisting}
+  import cv2
+  img=cv2.imread('BU_logo.png')
+\end{lstlisting}
+As shown in this example, functions inside the module (e.g., \var{imread}) can then be called by using the name of the module \var{cv2} and a dot \var{.} before their name. 
+
+\subsection{Loading and showing images}
+The following expanded example loads an image with \var{imread}, shows it on screen with \var{imshow}, waits for a key to be pressed (\textbf{Note: you need to press the key while the image window, not the prompt, is in focus}), then closes all the image windows.
+\info{Calling \var{imshow} does not show the image window immediately. It is necessary to use \var{waitKey} to make it appear.}
+\info{If you do not call \var{destroyAllWindows}, the window will remain in a ``Not responding'' state, so please always remember to call it before the end of the script.}
+\begin{lstlisting}
+  import cv2
+  img=cv2.imread('BU_logo.png')
+  cv2.imshow('Image title',img)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()
+\end{lstlisting}
+
+\subsection{Taking images from the drone and saving them}
+To be able to get images from the camera onboard the drone, you need to use the function \var{stream_on()} on the \var{tello} object; this function should be called only once right after the call to the function \var{connect()}.
+The actual images can then be obtained by calling the function \var{tello.get_frame()}.
+You can save the images on disk with the function \var{imwrite('filename.png',img)} from the \var{cv2} module (change \var{filename} to the name of the file that you prefer, but do not forget the extension \var{.png}).
+
+The following example summarizes all these commands:
+\begin{lstlisting}
+from djitellopy import Tello
+import cv2
+tello.connect()
+tello.stream_on()
+img = tello.get_frame()
+cv2.imwrite('filename.png',img)
+tello.end()
+\end{lstlisting}
+\warning{When running this script, please wait for it to end completely (it might take a few seconds). You should see \var{update_frame: terminating} in the prompt window. If you close the prompt before this, you might have trouble getting images.}
+
+\info{The image should get saved in the \emph{Documents/djitello} directory.}
+
+\trythis{Take a selfie with the drone.}
+\trythis{Can you write a script to make the drone fly and then take a sequence of pictures in four or more directions?}
+
+\subsection{Debugging image acquisition problems}
+If there are problems in the system (e.g., a previous script crashed before the call to \var{tello.end()}), the variable \var{img} might be empty. The following example adds a \var{if} command to check for this, and print a warning if it happens.
+
+\begin{lstlisting}
+from djitellopy import Tello
+import cv2
+tello.connect()
+tello.stream_on()
+img = tello.get_frame()
+if not img:
+    print('No frame')
+else:
+    cv2.imwrite('filename.png',img)
+tello.end()
+\end{lstlisting}
+
+
+\end{document}

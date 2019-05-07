@@ -1,24 +1,17 @@
 ﻿# TelloSDKPy
 DJI Tello drone python interface using the official [Tello SDK](https://dl-cdn.ryzerobotics.com/downloads/tello/20180910/Tello%20SDK%20Documentation%20EN_1.3.pdf). 
-Yes, this library has been tested with the drone. 
-Please see [example.py](https://github.com/damiafuentes/TelloSDKPy/blob/master/example.py) for a working example controlling the drone as a remote controller with the keyboard and the video stream in a window.  
+The package has been tested with Python 2.7 and 3.6 (macOS and Windows) and the drone connected using the default ad-hoc network, but it also may be compatible with other versions.
 
-Tested with Python 3.6, but it also may be compatabile with other versions.
-
-## Install
+# Install
 ```
-$ pip install djitellopy
-```
-or
-```
-$ git clone https://github.com/damiafuentes/TelloSDKPy.git
+$ git clone https://tronroberto@bitbucket.org/tronroberto/pythondjitello.git DJITelloPy
 $ cd DJITelloPy
 $ pip install requirements.txt
 ```
 
-## Usage
+# Usage
 
-### Simple example
+## Simple example
 
 ```
 from djitellopy import Tello
@@ -45,20 +38,28 @@ time.sleep(5)
 tello.end()
 ```
 
-### Example using pygame and the video stream
-Please see [example.py](https://github.com/damiafuentes/TelloSDKPy/blob/master/example.py). 
+## Examples
+The following examples illustrate how to use different features of the package.
+- test_path.py: Pre-programmed path motion
+- test_mpads.py: Pre-programmed path motion using mission pads.
+- test_state.py: Display the state broadcast by the drone.
+- test_video.py: Display a live stream of the camera using 
+- test_pygame.py: Keyboard teleoperation with live video streaming.
 
-The controls are:
+For test_pygame.py, the controls are:
 - T: Takeoff
 - L: Land
 - Arrow keys: Forward, backward, left and right.
 - A and D: Counter clockwise and clockwise rotations
 - W and S: Up and down.
+ 
 
-### Note
+
+# Troubleshooting
+## ```Unknown command``` response
 If you are using the ```streamon``` command and the response is ```Unknown command``` means you have to update the Tello firmware. That can be done through the Tello app.
 
-### Installing OpenCV on Windows
+## Installing OpenCV on Windows
 1. Remove opencv from the anaconda install, if installed. "conda remove opencv" from Anaconda Prompt.
 2. Download opencv 3.4.6 for windows from https://sourceforge.net/projects/opencvlibrary/files/3.4.6/opencv-3.4.6-vc14_vc15.exe/download
 3. Run the opencv exe and unzipped the content to "<path to Tello>\Tello"
@@ -69,13 +70,23 @@ If you are using the ```streamon``` command and the response is ```Unknown comma
 
 Instructions adapted from: https://mathalope.co.uk/2015/05/07/opencv-python-how-to-install-opencv-python-package-to-anaconda-windows/
 
-## Author
+# Tutorial handout
+This package has been used as part of a 1-day workshop (around 6 hours) for the Boston University Upward Bound Math and Science program. This workshop was geared toward high-school students with no prior programming experience. Part of the workshop is based on the handout provided as LaTeX source under the tex directory.
+
+# Known issues
+Issuing the tello.stream_on() command quickly after the tello.takeoff() command sometimes results in the drone stopping to sending state updates and acknowledgements to commands for a few minutes (although the drone still might execute the commands).
+
+# Authors
 
 * **Damià Fuentes Escoté** 
 * **Roberto Tron**
 * **Bee Vang**
 
-## License
+# Credits
 
-This project is licensed under the MIT License - see the [LICENSE.md](https://github.com/damiafuentes/TelloSDKPy/blob/master/LICENSE) file for details
+This repository is a fork of the original repository (https://github.com/damiafuentes/DJITelloPy) by Damià Fuentes Escoté. It includes several improvements, including: handling of the state sent by the drone, better management of sockets and timeouts, code for detecting faces using the classic OpenCV Haar Cascade, minor refactoring.
 
+
+# License
+
+This project is licensed under the MIT License - see the LICENSE.md file for details

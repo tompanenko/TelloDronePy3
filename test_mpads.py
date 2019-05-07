@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+''' Motion along a pre-programmed based on mission pads. Make sure pad 8 and 1 are visible to the drone after takeoff. '''
 from djitellopy import Tello
 import time
 

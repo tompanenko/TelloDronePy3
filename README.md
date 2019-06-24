@@ -1,4 +1,4 @@
-﻿﻿# TelloSDKPy
+﻿﻿﻿# TelloSDKPy
 DJI Tello drone python interface using the official [Tello SDK](https://dl-cdn.ryzerobotics.com/downloads/tello/20180910/Tello%20SDK%20Documentation%20EN_1.3.pdf). 
 The package has been tested with Python 2.7 and 3.6 (macOS and Windows) and the drone connected using the default ad-hoc network, but it also may be compatible with other versions.
 
@@ -56,6 +56,9 @@ For test_pygame.py, the controls are:
 
 
 # Troubleshooting
+## First use
+You might need to activate the drone. Connect to the drone using the mobile app, activate the product, and then try again.
+
 ## ```Unknown command``` response
 If you are using the ```streamon``` command and the response is ```Unknown command``` means you have to update the Tello firmware. That can be done through the Tello app.
 
@@ -70,14 +73,17 @@ If you are using the ```streamon``` command and the response is ```Unknown comma
 
 Instructions adapted from: https://mathalope.co.uk/2015/05/07/opencv-python-how-to-install-opencv-python-package-to-anaconda-windows/
 
-# Tutorial handout
+# Documentation
+
+## Tutorial handout
 This package has been used as part of a 1-day workshop (around 6 hours) for the Boston University Upward Bound Math and Science program. This workshop was geared toward high-school students with no prior programming experience. Part of the workshop is based on the handout provided as LaTeX source under the tex directory.
+
+## Original SDK documentation
+The documentation for the SDK for the drone and the mission pads is available at https://www.ryzerobotics.com/tello-edu/downloads. A copy of the relevant PDF files is available under the `docs` subdirectory.
 
 # Known issues
 Issuing the tello.stream_on() command quickly after the tello.takeoff() command sometimes results in the drone stopping to sending state updates and acknowledgements to commands for a few minutes (although the drone still might execute the commands).
 
-# Original SDK documentation
-The documentation for the SDK for the drone and the mission pads is available at https://www.ryzerobotics.com/tello-edu/downloads. A copy of the relevant PDF files is available under the `docs` subdirectory.
 
 # Authors
 

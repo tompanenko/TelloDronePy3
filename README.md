@@ -1,4 +1,4 @@
-﻿# TelloSDKPy
+﻿﻿# TelloSDKPy
 DJI Tello drone python interface using the official [Tello SDK](https://dl-cdn.ryzerobotics.com/downloads/tello/20180910/Tello%20SDK%20Documentation%20EN_1.3.pdf). 
 The package has been tested with Python 2.7 and 3.6 (macOS and Windows) and the drone connected using the default ad-hoc network, but it also may be compatible with other versions.
 
@@ -75,6 +75,9 @@ This package has been used as part of a 1-day workshop (around 6 hours) for the 
 
 # Known issues
 Issuing the tello.stream_on() command quickly after the tello.takeoff() command sometimes results in the drone stopping to sending state updates and acknowledgements to commands for a few minutes (although the drone still might execute the commands).
+
+# Original SDK documentation
+The documentation for the SDK for the drone and the mission pads is available at https://www.ryzerobotics.com/tello-edu/downloads. A copy of the relevant PDF files is available under the `docs` subdirectory.
 
 # Authors
 

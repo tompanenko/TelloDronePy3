@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+from telloVid import Tello
+import cv2
+import numpy as np
+import image_face_processing as ifp
+
+is_face_detection = False
+
+img = np.zeros((500, 500))
+cv2.imshow('pilot', img)
+
+tello = Tello()
+
+tello.connect()
+tello.stream_on()
+try:
+    while cv2.waitKey(50) == -1:
+        img = tello.get_frame()
+        if img is not None:
+            if is_face_detection:
+                print img.shape
+                faces = ifp.image_faces(img)
+                ifp.image_faces_rectangle(img, faces)
+            cv2.imshow('pilot', img)
+        else:
+            print 'No frame'
+finally:
+    tello.end()
+    cv2.destroyAllWindows()

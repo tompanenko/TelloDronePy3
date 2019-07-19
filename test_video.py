@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from tello import Tello
+from djitellopy import Tello
 import cv2
 import numpy as np
 import image_face_processing as ifp
@@ -13,7 +13,6 @@ tello = Tello()
 
 tello.connect()
 tello.stream_on()
-print 'here'
 try:
     while cv2.waitKey(50) == -1:
         img = tello.get_frame()

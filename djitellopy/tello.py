@@ -304,10 +304,10 @@ class Tello:
         # Commands very consecutive makes the drone not respond to them. So wait at least self.TIME_BTW_COMMANDS seconds
 
         print('Send command (no expect response): ' + command)
-	if self.command_socket:
+	if self.socket:
             self.socket.sendto(command.encode('utf-8'), (self.COMMAND_UDP_IP, self.COMMAND_UDP_PORT))
-	elif self.socket:
-            self.socket.sendto(command.encode('utf-8'), self.command_address)
+	elif self.command_socket:
+            self.command_socket.sendto(command.encode('utf-8'), self.command_address)
 
     @accepts(command=str)
     def send_control_command(self, command):
@@ -740,13 +740,16 @@ class Tello:
 	else:
             return self.send_command_without_return("stop")
         
-    @accepts(ssid=str, password=str)
-    def set_wifi_with_ssid_password(self, ssid, password):
+    @accepts(ssid=str, password=str, wait=bool)
+    def set_wifi_with_ssid_password(self, ssid, password, wait=True):
         """Set Wi-Fi with SSID password.
         Returns:
             bool: True for successful, False for unsuccessful
         """
-        return self.send_control_command('ap ' + ssid + ' ' + password)
+        if wait:
+            return self.send_control_command('ap ' + ssid + ' ' + password)
+	else:
+            return self.send_command_without_return('ap ' + ssid + ' ' + password)
 
     def get_speed(self):
         """Get current speed (cm/s)

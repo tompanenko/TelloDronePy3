@@ -63,7 +63,7 @@ class Tello:
     STATE_UDP_IP = '0.0.0.0'
     STATE_UDP_PORT = 8890
     last_received_state = time.time()
-    
+
     # Video stream, server socket
     VIDEO_UDP_IP = '0.0.0.0'
     VIDEO_UDP_PORT = 11111
@@ -81,6 +81,7 @@ class Tello:
     state_str = None
     state = None
 
+    '''
     def __init__(self):
         self.is_running = True
         self.__init__command_socket()
@@ -88,12 +89,25 @@ class Tello:
         self.is_stream_on = False
 
     def __init__(self, IP):
+        self.is_running = True
         self.COMMAND_UDP_IP = IP
-	#self.VIDEO_UDP_IP = IP
+        # self.VIDEO_UDP_IP = IP
         self.LOCAL_PORT = Tello.port
         Tello.port = Tello.port + 1
+        self.__init__socket()
+        self.is_stream_on = False
+    '''
+    def __init__(self, IP='192.168.10.1'):
         self.is_running = True
-        self.__init__socket() 
+        if IP == '192.168.10.1':
+            self.__init__command_socket()
+            self.__init__state_socket()
+        else:
+            self.COMMAND_UDP_IP = IP
+            # self.VIDEO_UDP_IP = IP
+            self.LOCAL_PORT = Tello.port
+            Tello.port += 1
+            self.__init__socket()
         self.is_stream_on = False
 
     def __init__command_socket(self):
@@ -126,7 +140,7 @@ class Tello:
         state_thread = threading.Thread(target=self.state_receiver, args=())
         state_thread.daemon = True
         state_thread.start()
-########################################################################################################
+
     def command_response_receiver(self):
         """Listens for responses from Tello. Must be run as a background thread."""
         print "command_response_receiver: starting"
@@ -152,23 +166,22 @@ class Tello:
         print "state_receiver: starting"
         while self.is_running:
             try:
-                self.state_str, client_address = self.state_socket.recvfrom(200)
+                self.state_str, _ = self.state_socket.recvfrom(200)
                 # The following command echoes back the state to the drone. Not sure it is necessary.
-                #sent = self.state_socket.sendto(self.state_str, client_address)
+                # sent = self.state_socket.sendto(self.state_str, client_address)
                 self.state = state_str_to_dict(self.state_str)
                 timeout_count = 0
             except socket.timeout:
                 timeout_count += 1
                 print "state_receiver: timeout count: ", timeout_count
-                if timeout_count > 10: #CHANGE BACK TO 60 WHEN FINISHED
+                if timeout_count > 10:  # CHANGE BACK TO 60 WHEN FINISHED
                     print "command_response_receiver: too many timeouts"
                     self.is_running = False
 
-        #except Exception as e:
-        #print(e)
+        # except Exception as e:
+        # print(e)
         self.state_socket.close()
         print "state_receiver: terminating"
-#######################################################################################################
 
     def __init__socket(self):
         """ Initializes socket for giving commands and receiving responses """
@@ -192,8 +205,8 @@ class Tello:
         print "command_response_receiver: starting"
         timeout_count = 0
         while self.is_running:
-            try: 
-                self.response, client_address = self.socket.recvfrom(1024)  # buffer size is 1024 bytes
+            try:
+                self.response, _ = self.socket.recvfrom(1024)  # buffer size is 1024 bytes
                 print("Received message: " + self.response.decode(encoding='utf-8'))
                 timeout_count = 0
             except socket.timeout:
@@ -205,7 +218,6 @@ class Tello:
 
         self.socket.close()
         print "command_response_receiver: terminating"
-
 
     def print_state(self, raw=False):
         if not self.state:
@@ -246,12 +258,12 @@ class Tello:
         print('Send command: ' + command)
         timestamp = time.clock()
 
-        #give error if socket is not setup yet
+        # give error if socket is not setup yet
         if self.socket or self.command_socket:
             try:
-		if self.socket:
+                if self.socket:
                     self.socket.sendto(command.encode('utf-8'), (self.COMMAND_UDP_IP, self.COMMAND_UDP_PORT))
-		elif self.command_socket:
+                elif self.command_socket:
                     self.command_socket.sendto(command.encode('utf-8'), self.command_address)
             except socket.error as e:
                 print(e)
@@ -262,9 +274,9 @@ class Tello:
                 if lag_time > self.RESPONSE_TIMEOUT:
                     print 'Timeout ', lag_time, ' exceed on command ', command
                     return False
-            
+
             print 'Response: ', str(self.response), '(delay: ', time.clock() - timestamp, ')'
-            
+
             try:
                 response = self.response.decode('utf-8')
             except Exception as e:
@@ -304,9 +316,10 @@ class Tello:
         # Commands very consecutive makes the drone not respond to them. So wait at least self.TIME_BTW_COMMANDS seconds
 
         print('Send command (no expect response): ' + command)
-	if self.socket:
+
+        if self.socket:
             self.socket.sendto(command.encode('utf-8'), (self.COMMAND_UDP_IP, self.COMMAND_UDP_PORT))
-	elif self.command_socket:
+        elif self.command_socket:
             self.command_socket.sendto(command.encode('utf-8'), self.command_address)
 
     @accepts(command=str)
@@ -361,7 +374,7 @@ class Tello:
         Return:
             bool: True for successful, False for unsuccessful
         """
-        response = self.send_command_with_return(command) 
+        response = self.send_command_with_return(command)
         try:
             response = str(response)
         except TypeError as e:
@@ -412,7 +425,7 @@ class Tello:
 
     def get_frame(self):
         if self.is_stream_on:
-            #print self.background_frame_reader.frame is None -> True
+            # print self.background_frame_reader.frame is None -> True
             return self.background_frame_reader.frame
         else:
             return None
@@ -470,9 +483,9 @@ class Tello:
         Returns:
             bool: True for successful, False for unsuccessful
         """
-	if wait:
+        if wait:
             return self.send_control_command("command")
-	else:
+        else:
             return self.send_command_without_return("command")
 
     def takeoff(self, wait=True):
@@ -483,7 +496,7 @@ class Tello:
         """
         if wait:
             return self.send_control_command("takeoff")
-	else:
+        else:
             return self.send_command_without_return("takeoff")
 
     def land(self, wait=True):
@@ -493,7 +506,7 @@ class Tello:
         """
         if wait:
             return self.send_control_command("land")
-	else:
+        else:
             return self.send_command_without_return("land")
 
     def emergency(self, wait=True):
@@ -503,7 +516,7 @@ class Tello:
         """
         if wait:
             return self.send_control_command("emergency")
-	else:
+        else:
             return self.send_command_without_return("emergency")
 
     @accepts(direction=str, x=int, wait=bool)
@@ -518,74 +531,74 @@ class Tello:
         """
         if wait:
             return self.send_control_command(direction + ' ' + str(x))
-	else:
+        else:
             return self.send_command_without_return(direction + ' ' + str(x))
 
     @accepts(x=int, wait=bool)
     def move_up(self, x, wait=True):
-	"""Tello fly up with distance x cm.
+        """Tello fly up with distance x cm.
         Arguments:
             x: 20-500
 
         Returns:
             bool: True for successful, False for unsuccessful
         """
-	return self.move("up", x, wait)
-   
+        return self.move("up", x, wait)
+
     @accepts(x=int, wait=bool)
     def move_down(self, x, wait=True):
-	"""Tello fly down with distance x cm.
+        """Tello fly down with distance x cm.
         Arguments:
             x: 20-500
 
         Returns:
             bool: True for successful, False for unsuccessful
         """
-	return self.move("down", x, wait)
-   
+        return self.move("down", x, wait)
+
     @accepts(x=int, wait=bool)
     def move_forward(self, x, wait=True):
-	"""Tello fly forward with distance x cm.
+        """Tello fly forward with distance x cm.
         Arguments:
             x: 20-500
 
         Returns:
             bool: True for successful, False for unsuccessful
         """
-	return self.move("forward", x, wait)
-   
+        return self.move("forward", x, wait)
+
     @accepts(x=int, wait=bool)
     def move_back(self, x, wait=True):
-	"""Tello fly back with distance x cm.
+        """Tello fly back with distance x cm.
         Arguments:
             x: 20-500
 
         Returns:
             bool: True for successful, False for unsuccessful
         """
-	return self.move("back", x, wait)
-   
+        return self.move("back", x, wait)
+
     @accepts(x=int, wait=bool)
     def move_left(self, x, wait=True):
-	"""Tello fly forward with distance x cm.
+        """Tello fly forward with distance x cm.
         Arguments:
             x: 20-500
 
         Returns:
             bool: True for successful, False for unsuccessful
         """
-	return self.move("left", x, wait)
-   
+        return self.move("left", x, wait)
+
     @accepts(x=int, wait=bool)
     def move_right(self, x, wait=True):
-	"""Tello fly back with distance x cm.
+        """Tello fly back with distance x cm.
         Arguments:
             x: 20-500
 
         Returns:
             bool: True for successful, False for unsuccessful
         """
-	return self.move("right", x, wait)
+        return self.move("right", x, wait)
 
     @accepts(direction=str, x=int, wait=bool)
     def rotate(self, direction, x, wait=True):
@@ -598,7 +611,7 @@ class Tello:
         """
         if wait:
             return self.send_control_command(direction + ' ' + str(x))
-	else:
+        else:
             return self.send_command_without_return(direction + ' ' + str(x))
 
     @accepts(x=int, wait=bool)
@@ -610,7 +623,7 @@ class Tello:
         Returns:
             bool: True for successful, False for unsuccessful
         """
-	return self.rotate("cw ", x, wait)
+        return self.rotate("cw ", x, wait)
 
     @accepts(x=int, wait=bool)
     def rotate_ccw(self, x, wait=True):
@@ -621,7 +634,8 @@ class Tello:
         Returns:
             bool: True for successful, False for unsuccessful
         """
-	return self.rotate("ccw ", x, wait)
+
+        return self.rotate("ccw ", x, wait)
 
     @accepts(direction=str, wait=bool)
     def flip(self, direction, wait=True):
@@ -634,7 +648,7 @@ class Tello:
         """
         if wait:
             return self.send_control_command("flip " + direction)
-	else:
+        else:
             return self.send_command_without_return("flip " + direction)
 
     def flip_left(self, wait=True):
@@ -699,7 +713,7 @@ class Tello:
         """
         if wait:
             return self.send_control_command("speed " + str(x))
-	else:
+        else:
             return self.send_command_without_return("speed " + str(x))
 
     last_rc_control_sent = 0
@@ -737,9 +751,9 @@ class Tello:
         """
         if wait:
             return self.send_control_command("stop")
-	else:
+        else:
             return self.send_command_without_return("stop")
-        
+
     @accepts(ssid=str, password=str, wait=bool)
     def set_wifi_with_ssid_password(self, ssid, password, wait=True):
         """Set Wi-Fi with SSID password.
@@ -748,7 +762,7 @@ class Tello:
         """
         if wait:
             return self.send_control_command('ap ' + ssid + ' ' + password)
-	else:
+        else:
             return self.send_command_without_return('ap ' + ssid + ' ' + password)
 
     def get_speed(self):
@@ -766,10 +780,8 @@ class Tello:
             int: -100
         """
         if self.state:
-            
             return self.state['bat']
         else:
-            
             return self.send_read_command('battery?')
 
     def get_flight_time(self):
@@ -827,7 +839,7 @@ class Tello:
         if self.state:
             return self.state['tof']
         else:
-	    return self.send_read_command('tof?')
+            return self.send_read_command('tof?')
 
     def get_wifi(self):
         """Get Wi-Fi SNR
@@ -854,20 +866,20 @@ class BackgroundFrameReader:
     This class read frames from a VideoCapture in background. Then, just call backgroundFrameReader.frame to get the actual one.
     """
 
-    RESPONSE_TIMEOUT=10
-    
+    RESPONSE_TIMEOUT = 10
+
     def __init__(self, tello, address):
         self.cap = cv2.VideoCapture(address)
-#	print self.cap is not None
+        # print self.cap is not None
         if not self.cap.isOpened():
             self.cap.open(address)
-#	print self.cap.isOpened()
+            # print self.cap.isOpened()
 
-        #print self.cap.isOpened() -> False
+        # print self.cap.isOpened() -> False
 
         self.grabbed, self.frame = self.cap.read()
-        
-	#print self.frame is None -> True
+
+        # print self.frame is None -> True
 
         self.is_running = True
         self.is_running_update_frame = False
@@ -875,7 +887,7 @@ class BackgroundFrameReader:
     def start(self):
         self.frame_thread = Thread(target=self.update_frame, args=()).start()
         print 'update_frame: waiting to start'
-        starttime=time.clock()
+        starttime = time.clock()
         while not self.is_running_update_frame:
             lag_time = time.clock() - starttime
             if lag_time > self.RESPONSE_TIMEOUT:
@@ -891,12 +903,12 @@ class BackgroundFrameReader:
             #    if not self.grabbed or not self.cap.isOpened():
             #        self.stop()
             #    else:
-            #print "Frame grab"
+            # print "Frame grab"
             (self.grabbed, self.frame) = self.cap.read()
         self.is_running_update_frame = False
         print "update_frame: terminating"
 
     def stop(self):
-        #if self.cap.isOpened():
+        # if self.cap.isOpened():
         #    self.cap.release()
         self.is_running = False

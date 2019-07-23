@@ -7,7 +7,7 @@ import math
 from djitellopy import Tello
 
 # Create Tello objects
-h = Tello('192.168.1.175')
+h = Tello('192.168.1.186')
 #g = Tello('192.168.1.175')
 
 # Put Tello into command mode

@@ -5,6 +5,7 @@ import threading
 import cv2
 from threading import Thread
 from decorators import accepts
+from __builtin__ import False
 
 
 def float_maybe_list(str_float, sep=','):
@@ -45,6 +46,8 @@ class Tello:
 
     # "Static" variable that increments each time a tello object is created so they each get a different port number
     port = 9010
+    states = {}
+    raw_states = {}
 
     # Timeout for sockets
     RESPONSE_TIMEOUT = 7  # in seconds
@@ -87,7 +90,7 @@ class Tello:
         self.__init__command_socket()
         self.__init__state_socket()
         self.is_stream_on = False
-
+    
     def __init__(self, IP):
         self.is_running = True
         self.COMMAND_UDP_IP = IP
@@ -97,19 +100,26 @@ class Tello:
         self.__init__socket()
         self.is_stream_on = False
     '''
-    def __init__(self, IP='192.168.10.1'):
+    def __init__(self, IP='192.168.10.1', getState=True):
         self.is_running = True
-        if IP == '192.168.10.1':
+        if IP == '192.168.10.1' or getState:
+            print 'here'
+            self.COMMAND_UDP_IP = IP
             self.__init__command_socket()
-            self.__init__state_socket()
+            Tello.states[IP] = None
+            Tello.raw_states[IP] = None
+            if len(Tello.states) == 1:
+                self.__init__state_socket()
+            self.current_state = 0
         else:
+            print 'no here'
             self.COMMAND_UDP_IP = IP
             # self.VIDEO_UDP_IP = IP
             self.LOCAL_PORT = Tello.port
             Tello.port += 1
             self.__init__socket()
         self.is_stream_on = False
-
+    
     def __init__command_socket(self):
         """ Initializes socket for giving commands and receiving responses """
         # To send commands
@@ -147,15 +157,14 @@ class Tello:
         timeout_count = 0
         while self.is_running:
             try:
-                self.response, _ = self.command_socket.recvfrom(
-                    1024)  # buffer size is 1024 bytes
+                self.response, _ = self.command_socket.recvfrom(1024)  # buffer size is 1024 bytes
                 timeout_count = 0
             except socket.timeout:
                 timeout_count += 1
                 print "command_response_receiver: timeout count: ", timeout_count
                 if timeout_count > 60:
                     print "command_response_receiver: too many timeouts"
-                    self.is_running = False
+                    #self.is_running = False
 
         self.command_socket.close()
         print "command_response_receiver: terminating"
@@ -163,13 +172,19 @@ class Tello:
     def state_receiver(self):
         """Listens for state from Tello. Must be run as a background thread."""
         timeout_count = 0
+        self.state_counter = 0
         print "state_receiver: starting"
         while self.is_running:
             try:
-                self.state_str, _ = self.state_socket.recvfrom(200)
+                self.state_str, address_port = self.state_socket.recvfrom(200)
+                drone_address = address_port[0]
                 # The following command echoes back the state to the drone. Not sure it is necessary.
                 # sent = self.state_socket.sendto(self.state_str, client_address)
                 self.state = state_str_to_dict(self.state_str)
+                self.state['address'] = drone_address
+                Tello.raw_states[drone_address] = self.state_str
+                Tello.states[drone_address] = self.state
+                self.state_counter += 1
                 timeout_count = 0
             except socket.timeout:
                 timeout_count += 1
@@ -183,6 +198,55 @@ class Tello:
         self.state_socket.close()
         print "state_receiver: terminating"
 
+    def print_state(self, raw=False):
+        if self.COMMAND_UDP_IP not in Tello.states:
+            print "No state received"
+        else:
+            if raw:
+                print Tello.raw_states[self.COMMAND_UDP_IP]
+            #else:
+            #    print Tello.states[self.COMMAND_UDP_IP]
+            
+            else:
+                print state_format(Tello.states[self.COMMAND_UDP_IP], [('Address', 'address')])
+                print state_format(Tello.states[self.COMMAND_UDP_IP], [('Battery', 'bat')])
+                print 'Attitude:'
+                print '\t', state_format(Tello.states[self.COMMAND_UDP_IP], [('Roll', 'roll'),
+                                                      ('Pitch', 'pitch'),
+                                                      ('Yaw', 'yaw')])
+                print 'Height:', Tello.states[self.COMMAND_UDP_IP]['h']
+                print 'Acceleration: '
+                print '\t', state_format(Tello.states[self.COMMAND_UDP_IP],
+                                         [('X', 'agx'), ('Z', 'agy'),
+                                          ('Z', 'agz')])
+                if Tello.states[self.COMMAND_UDP_IP]['mid'] < 0:
+                    print 'No mission pad detected'
+                else:
+                    print state_format(Tello.states[self.COMMAND_UDP_IP], [('Mission pad', 'mid')])
+                    print '\t', state_format(
+                        Tello.states[self.COMMAND_UDP_IP], [('X', 'x'), ('Y', 'y'), ('Z', 'z')])
+                    print '\t', 'Yaw:', Tello.states[self.COMMAND_UDP_IP]['mpry'][2]
+               
+    
+    def get_state(self, raw=False):
+        if self.COMMAND_UDP_IP not in Tello.states:
+            print 'No state received for ', self.COMMAND_UDP_IP
+            return False
+        else:
+            if raw:
+                return Tello.raw_states[self.COMMAND_UDP]
+            else:
+                return Tello.states[self.COMMAND_UDP]
+        '''
+        if not self.state:
+            print 'No state received'
+            return False
+        else:
+            if raw:
+                return self.state_str
+            else:
+                return self.state
+        '''
     def __init__socket(self):
         """ Initializes socket for giving commands and receiving responses """
         # To send commands
@@ -218,32 +282,61 @@ class Tello:
 
         self.socket.close()
         print "command_response_receiver: terminating"
+    
+    def start_tracking(self):
+        '''Start tracking thread'''
+        self.stop_track = False
+        tracking_thread = threading.Thread(target=self.track, args=())
+        tracking_thread.daemon = True
+        tracking_thread.start()
+        
+    
+    def stop_tracking(self):
+        '''End tracking thread'''
+        self.stop_track = True
 
-    def print_state(self, raw=False):
-        if not self.state:
-            print "No state received"
-        else:
-            if raw:
-                print self.state_str
+    def track(self):
+        '''Track the Tello's position in x, y, z - axes
+        Must be run as a background thread
+        '''
+        self.x = 0
+        self.y = 0
+        self.z = 0
+        self.x_cm = 0
+        self.y_cm = 0
+        self.z_cm = 0
+        init_time = time.time()
+        prev_time = init_time
+        while self.is_running and not self.stop_track:
+            state_time =  self.wait_for_update()
+            velx = float(self.get_vgx())
+            vely = float(self.get_vgy())
+            velz = float(self.get_vgz())
+            dt = state_time - prev_time
+            prev_time = state_time
+            self.x = self.x + velx*dt
+            self.y = self.y + vely*dt
+            self.z = self.z + velz*dt
+            if self.x != 0:
+                self.x_cm =  10.0 * self.x + 11.7 * (self.x/abs(self.x))
             else:
-                print state_format(self.state, [('Battery', 'bat')])
-                print 'Attitude:'
-                print '\t', state_format(self.state, [('Roll', 'roll'),
-                                                      ('Pitch', 'pitch'),
-                                                      ('Yaw', 'yaw')])
-                print 'Height:', self.state['h']
-                print 'Acceleration: '
-                print '\t', state_format(self.state,
-                                         [('X', 'agx'), ('Z', 'agy'),
-                                          ('Z', 'agz')])
-                if self.state['mid'] < 0:
-                    print 'No mission pad detected'
-                else:
-                    print state_format(self.state, [('Mission pad', 'mid')])
-                    print '\t', state_format(
-                        self.state, [('X', 'x'), ('Y', 'y'), ('Z', 'z')])
-                    print '\t', 'Yaw:', self.state['mpry'][2]
+                self.x_cm = 0
+            if self.y != 0:
+                self.y_cm = -10.3 * self.y + 10.5 * (-1 * self.y/abs(self.y))
+            else:
+                self.y_cm = 0
+            if self.z != 0:
+                self.z_cm = -13.5 * self.z + 13.8 * (-1 * self.z/abs(self.z))
+            else:
+                self.z_cm = 0
 
+    
+    def get_pos(self, cm=True):
+        if cm:
+            return self.x_cm, self.y_cm, self.z_cm
+        else:
+            return self.x, self.y, self.z
+    
     @accepts(command=str)
     def send_command_with_return(self, command):
         """Send command to Tello and wait for its response.
@@ -410,8 +503,8 @@ class Tello:
         """
         return self.send_control_command("moff")
 
-    def get_udp_video_address(self):
-        return 'udp://@' + self.VIDEO_UDP_IP + ':' + str(self.VIDEO_UDP_PORT) + '?overrun_nonfatal=1&fifo_size=5000'
+    def _udp_video_address(self):
+        return 'udp://@' + self.VIDEO_UDP_IP + ':' + str(self.VIDEO_UDP_PORT) # + '?overrun_nonfatal=1&fifo_size=5000'
 
     def get_frame_reader(self):
         """Get the BackgroundFrameReader object from the camera drone. Then, you just need to call
@@ -773,6 +866,39 @@ class Tello:
         """
         return self.send_read_command('speed?')
 
+    def get_vgx(self):
+        """Get current speed (cm/s)
+        Returns:
+            False: Unsuccessful
+            int: 1-100
+        """
+        if self.COMMAND_UDP_IP in Tello.states:
+            return Tello.states[self.COMMAND_UDP_IP]['vgx']
+        else:
+            return False
+
+    def get_vgy(self):
+        """Get current speed (cm/s)
+        Returns:
+            False: Unsuccessful
+            int: 1-100
+        """
+        if self.state:
+            return self.state['vgy']
+        else:
+            return False
+
+    def get_vgz(self):
+        """Get current speed (cm/s)
+        Returns:
+            False: Unsuccessful
+            int: 1-100
+        """
+        if self.state:
+            return self.state['vgz']
+        else:
+            return False
+
     def get_battery(self):
         """Get current battery percentage
         Returns:
@@ -849,6 +975,13 @@ class Tello:
         """
         return self.send_read_command('wifi?')
 
+    def wait_for_update(self):
+        while self.current_state == self.state_counter:
+            pass
+        timestamp = time.time()
+        self.current_state = self.state_counter
+        return timestamp
+    
     def end(self):
         """Call this method when you want to end the tello object"""
         time.sleep(3)
@@ -870,10 +1003,11 @@ class BackgroundFrameReader:
 
     def __init__(self, tello, address):
         self.cap = cv2.VideoCapture(address)
-        # print self.cap is not None
+        print ''
         if not self.cap.isOpened():
             self.cap.open(address)
-            # print self.cap.isOpened()
+        if self.cap.isOpened():
+            print 'OPEN'
 
         # print self.cap.isOpened() -> False
 
@@ -912,3 +1046,4 @@ class BackgroundFrameReader:
         # if self.cap.isOpened():
         #    self.cap.release()
         self.is_running = False
+

@@ -7,14 +7,14 @@ import image_face_processing as ifp
 is_face_detection = False
 
 img = np.zeros((500, 500))
-cv2.imshow('pilot', img)
+cv2.imshow('pilot', img) 
 
 tello = Tello()
 
 tello.connect()
 tello.stream_on()
 try:
-    while cv2.waitKey(50) == -1:
+    while cv2.waitKey(50) == -1: 
         img = tello.get_frame()
         if img is not None:
             if is_face_detection:
@@ -26,4 +26,4 @@ try:
             print 'No frame'
 finally:
     tello.end()
-    cv2.destroyAllWindows()
+    cv2.destroyAllWindows() 

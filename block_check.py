@@ -38,11 +38,11 @@ def track(tello2, time_q, pos_q, dt_q, final_q):
 
 def vel_track(tello1, tello2, q2, q1):
 	while not stop:
-		tello1.wait_for_update()
 		velx2 = float(tello2.get_vgx())
 		velx1 = float(tello1.get_vgx())
 		q2.put(velx2)
 		q1.put(velx1)
+		time.sleep(0.1)
 		
 
 if __name__ == '__main__':
@@ -54,7 +54,7 @@ if __name__ == '__main__':
 	# Put Tello into command mode
 	tello2.connect(False)
 	tello1.connect(False)
-	time.sleep(5)
+	time.sleep(10)
 	
 	tello2.takeoff(False)
 	tello1.takeoff(False)
@@ -84,17 +84,17 @@ if __name__ == '__main__':
 		velx1 = q1.get()
 		print '1:', velx1, '\t2:', velx2
 	
-	time.sleep(1)
-	
 	print 'ready'
+	print '1:', velx1, '\t2:', velx2
+	time.sleep(2)
 	start = time.time()
-	while time.time() - start < 10:
+	while time.time() - start < 7:
 		tello2.send_rc_control(0, 50, 0, 0)
 		tello1.send_rc_control(0, 50, 0, 0)
 		velx2 = q2.get()
 		velx1 = q1.get()
 		print '1:', velx1, '\t2:', velx2
-		if velx2 < 0.2 or velx1 < 0.2:
+		if velx2 < 0.1 or velx1 < 0.1:
 			print 'block'
 			
 			tello2.move_back(30, False)

@@ -53,7 +53,21 @@ For test_pygame.py, the controls are:
 - A and D: Counter clockwise and clockwise rotations
 - W and S: Up and down.
  
+## Scripts
+The following scripts are programs desinged to control one or multiple Tellos for a specific mission
+- above_swarm.py: Tellos move around one above another
+- block_check.py: Two Tellos move forward together and stop and back up if either detects interference
+- cross_swarm.py: Two Tellos corss in front of each other multiple times
+- flip_over_swarm.py: One Tello flies towards the other, whuch flips to jump over it
+- POC_mulitclient.py: Used to test receiving the state from multiple Tellos
+- triangle_swarm.py: Three Tellos make up the verticies of a triangle and move around each other
+- up_down_swarm.py: Two Tellos alternate moving up and down
 
+## Tello class changes
+Multiple changes were made to the Tello class to make it more accomodating to swarming
+- The constructor was given the optional parameter of an IP address other than 192.168.10.1
+- A dictionary was used to store the state information of multiple Tellos so that both can access their state
+- A new thread and new methods were added to use Euler's Method to estimate the position of the Tello based on time and linear velocity values
 
 # Troubleshooting
 ## First use

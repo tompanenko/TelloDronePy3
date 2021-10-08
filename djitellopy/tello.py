@@ -28,6 +28,7 @@ def state_str_to_dict(state_str):
             return (None, None)
 
     if len(state_str) > 0:
+        print("STATE STRING " + str(state_str))
         return dict(item_str_to_pair(x) for x in state_str.split(';'))
     else:
         return None

@@ -5,7 +5,7 @@ import time
 from djitellopy import Tello
 
 # Create Tello objects
-tello = Tello('192.168.1.175')
+tello = Tello()#'192.168.1.175')
 
 # Distance
 d = 30
